@@ -70,15 +70,24 @@ def get_geoms(shape_paths, crs=dst_crs):
 			geoms.append(shape)
 	return geoms
 
-def write_nvdi(red, nir):
+def write_nvdi(red, nir, save=False, meta=None):
 
 	red = red.read()
 	nir = nir.read()
 	print(red.shape, nir.shape)
 	ndvi = (nir.astype(float)-red.astype(float))/(nir+red)
+	ndvi = ndvi*255
 	ndvi = np.nan_to_num(ndvi, nan=-999)
+	ndvi = ndvi.astype(rio.float32)
 
-	return ndvi.astype(rio.float32)
+	if save:
+		meta.update(driver='GTiff')
+		meta.update(dtype=rio.float32)
+		with rio.open('NDVI.tif', 'w', **meta) as dst:
+			dst.write(ndvi.astype(rio.float32))
+
+
+	return ndvi
 
 
 if __name__ == '__main__':
@@ -87,7 +96,7 @@ if __name__ == '__main__':
 	red = rio.open('T36UXA_B04_10m.jp2', driver='JP2OpenJPEG')
 	nir = rio.open('T36UXA_B08_10m.jp2', driver='JP2OpenJPEG')
 	meta = red.meta
-	print(write_nvdi(red, nir))
+	print(write_nvdi(red, nir, True, meta))
 	exit()
 	shape_paths = [os.path.join('regions', os.listdir('regions')[i]) 
 		for i in range(len(os.listdir('regions')))]
