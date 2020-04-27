@@ -9,7 +9,7 @@ from PIL import Image
 dst_crs = 'EPSG:32636'
 CROP_SIZE = 244
 
-def overlap_mask(shapes, profile, tiff_map,
+def overlap_mask(shapes, filename, profile, tiff_map,
 	target_shape=(CROP_SIZE, CROP_SIZE)):
 
 	transform, crs = tiff_map.profile['transform'], tiff_map.profile['crs']
@@ -25,7 +25,7 @@ def overlap_mask(shapes, profile, tiff_map,
 			#print(i, j)
 			img_arr = np.array(img_arr, dtype='uint8')
 			img_arr = Image.fromarray(img_arr)
-			img_arr.save(os.path.join('mask', f'{i}_{j}.png'))
+			img_arr.save(os.path.join('mask', f'{filename}_{i}_{j}.png'))
 			j += CROP_SIZE
 		i += CROP_SIZE
 		j=0
@@ -33,7 +33,7 @@ def overlap_mask(shapes, profile, tiff_map,
 
 	#return mask
 
-def save_divided_imgs(image, CROP_SIZE=CROP_SIZE):
+def save_divided_imgs(image, filename, CROP_SIZE=CROP_SIZE):
 	"""
 	image should be an array of size
 	(channels, height, width)
@@ -46,15 +46,17 @@ def save_divided_imgs(image, CROP_SIZE=CROP_SIZE):
 	while i < image.shape[1]:
 		while j < image.shape[2]:
 			img_arr = []
+			"""
 			for channel in range(image.shape[0]):
 				img_arr.append(image[channel, i:i+CROP_SIZE, j:j+CROP_SIZE])
 				print(np.array(img_arr[channel]))
 				img = Image.fromarray(np.array(img_arr[channel]))
 				img.save(os.path.join('true', f'{i}_{j}_{channel}.png'))
+			"""
 			print(np.array(img_arr).shape)
 			img_arr = np.array(img_arr)
 			img_arr = Image.fromarray(np.ma.transpose(img_arr, [1, 2, 0]))
-			img_arr.save(os.path.join('true', f'{i}_{j}_rgb.png'))
+			img_arr.save(os.path.join('true', f'{filename}_{i}_{j}.png'))
 			j += CROP_SIZE
 		i += CROP_SIZE
 		j=0
@@ -68,13 +70,29 @@ def get_geoms(shape_paths, crs=dst_crs):
 			geoms.append(shape)
 	return geoms
 
+def write_nvdi(red, nir):
+
+	red = red.read()
+	nir = nir.read()
+	print(red.shape, nir.shape)
+	ndvi = (nir.astype(float)-red.astype(float))/(nir+red)
+	ndvi = np.nan_to_num(ndvi, nan=-999)
+
+	return ndvi.astype(rio.float32)
+
 
 if __name__ == '__main__':
 
 	full_map = rio.open('T36UYV_TCI_10m.jp2', driver='JP2OpenJPEG')
+	red = rio.open('T36UXA_B04_10m.jp2', driver='JP2OpenJPEG')
+	nir = rio.open('T36UXA_B08_10m.jp2', driver='JP2OpenJPEG')
+	meta = red.meta
+	print(write_nvdi(red, nir))
+	exit()
 	shape_paths = [os.path.join('regions', os.listdir('regions')[i]) 
 		for i in range(len(os.listdir('regions')))]
 	geoms = get_geoms(shape_paths, crs=full_map.profile['crs'])
 	print(geoms)
-	overlap_mask(geoms, full_map.profile, full_map)
-	save_divided_imgs(full_map)
+	overlap_mask(geoms, filename='T36UYV_TCI_10m.jp2'.split('.')[0],
+		profile=full_map.profile, tiff_map=full_map)
+	save_divided_imgs(full_map, filename='T36UYV_TCI_10m.jp2'.split('.')[0])
