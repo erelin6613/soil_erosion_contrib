@@ -22,7 +22,9 @@ def overlap_mask(shapes, filename, profile, tiff_map,
 		#print(i, j)
 		while j < mask_arr.shape[1]:
 			img_arr = mask_arr[i:i+CROP_SIZE, j:j+CROP_SIZE]
-			#print(i, j)
+			if np.argmax(img_arr.ravel()) == 0:
+				j += CROP_SIZE
+				continue
 			img_arr = np.array(img_arr, dtype='uint8')
 			img_arr = Image.fromarray(img_arr)
 			img_arr.save(os.path.join('mask', f'{filename}_{i}_{j}.png'))
@@ -40,12 +42,11 @@ def save_divided_imgs(image, filename, CROP_SIZE=CROP_SIZE):
 	"""
 	i=0
 	j=0
-	img_arr = []
+	#img_arr = []
 	image = image.read()
-	# TODO: actual grid
 	while i < image.shape[1]:
 		while j < image.shape[2]:
-			img_arr = []
+			img_arr = image[:, i:i+CROP_SIZE, j:j+CROP_SIZE]
 			"""
 			for channel in range(image.shape[0]):
 				img_arr.append(image[channel, i:i+CROP_SIZE, j:j+CROP_SIZE])
@@ -55,6 +56,9 @@ def save_divided_imgs(image, filename, CROP_SIZE=CROP_SIZE):
 			"""
 			print(np.array(img_arr).shape)
 			img_arr = np.array(img_arr)
+			#if np.argmax(img_arr.ravel()) == 0:
+				#j += CROP_SIZE
+				#continue
 			img_arr = Image.fromarray(np.ma.transpose(img_arr, [1, 2, 0]))
 			img_arr.save(os.path.join('true', f'{filename}_{i}_{j}.png'))
 			j += CROP_SIZE
@@ -63,41 +67,67 @@ def save_divided_imgs(image, filename, CROP_SIZE=CROP_SIZE):
 
 def get_geoms(shape_paths, crs=dst_crs):
 
-	geoms = []
+	geoms = set()
 	for file in shape_paths:
 		p = gpd.read_file(file).to_crs(crs)
 		for shape in p.geometry:
-			geoms.append(shape)
+			geoms.add(shape)
 	return geoms
 
-def write_nvdi(red, nir, save=False, meta=None):
+def get_nvdi(red, nir, save=False, meta=None):
 
-	red = red.read()
-	nir = nir.read()
-	print(red.shape, nir.shape)
+	#red = red.read()
+	#nir = nir.read()
+	#print(red.shape, nir.shape)
 	ndvi = (nir.astype(float)-red.astype(float))/(nir+red)
-	ndvi = ndvi*255
-	ndvi = np.nan_to_num(ndvi, nan=-999)
+	#ndvi = np.nan_to_num(ndvi, nan=-999)
 	ndvi = ndvi.astype(rio.float32)
 
 	if save:
+		ndvi = ndvi
 		meta.update(driver='GTiff')
 		meta.update(dtype=rio.float32)
 		with rio.open('NDVI.tif', 'w', **meta) as dst:
+			dst.meta['nodata'] = -999
+			dst.meta['max'] = 1
+			dst.meta['min'] = 0
 			dst.write(ndvi.astype(rio.float32))
 
 
-	return ndvi
+	return np.nan_to_num(ndvi, nan=-999)
+
+
+def get_savi(red, nir, L=0.5, save=False, meta=None):
+
+	#red = red.read()
+	#nir = nir.read()
+	L = np.full(red.shape, L)
+	ndvi = ((1+L)*(nir.astype(float)-red.astype(float)))/(nir+red+L)
+	#ndvi = np.nan_to_num(ndvi, nan=-999)
+	ndvi = ndvi.astype(rio.float32)
+
+	if save:
+		ndvi = ndvi
+		meta.update(driver='GTiff')
+		meta.update(dtype=rio.float32)
+		with rio.open('NDVI.tif', 'w', **meta) as dst:
+			dst.meta['nodata'] = -999
+			dst.meta['max'] = 1
+			dst.meta['min'] = 0
+			dst.write(ndvi.astype(rio.float32))
+
+
+	return np.nan_to_num(ndvi, nan=-999)
 
 
 if __name__ == '__main__':
 
 	full_map = rio.open('T36UYV_TCI_10m.jp2', driver='JP2OpenJPEG')
-	red = rio.open('T36UXA_B04_10m.jp2', driver='JP2OpenJPEG')
-	nir = rio.open('T36UXA_B08_10m.jp2', driver='JP2OpenJPEG')
+	red = rio.open('T36UXA_B04_10m.jp2', driver='JP2OpenJPEG').read()
+	nir = rio.open('T36UXA_B08_10m.jp2', driver='JP2OpenJPEG').read()
 	meta = red.meta
-	print(write_nvdi(red, nir, True, meta))
-	exit()
+	#get_nvdi(red, nir, True, meta)
+	#exit()
 	shape_paths = [os.path.join('regions', os.listdir('regions')[i]) 
 		for i in range(len(os.listdir('regions')))]
 	geoms = get_geoms(shape_paths, crs=full_map.profile['crs'])
