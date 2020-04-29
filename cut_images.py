@@ -74,50 +74,6 @@ def get_geoms(shape_paths, crs=dst_crs):
 			geoms.add(shape)
 	return geoms
 
-def get_nvdi(red, nir, save=False, meta=None):
-
-	#red = red.read()
-	#nir = nir.read()
-	#print(red.shape, nir.shape)
-	ndvi = (nir.astype(float)-red.astype(float))/(nir+red)
-	#ndvi = np.nan_to_num(ndvi, nan=-999)
-	ndvi = ndvi.astype(rio.float32)
-
-	if save:
-		ndvi = ndvi
-		meta.update(driver='GTiff')
-		meta.update(dtype=rio.float32)
-		with rio.open('NDVI.tif', 'w', **meta) as dst:
-			dst.meta['nodata'] = -999
-			dst.meta['max'] = 1
-			dst.meta['min'] = 0
-			dst.write(ndvi.astype(rio.float32))
-
-
-	return np.nan_to_num(ndvi, nan=-999)
-
-
-def get_savi(red, nir, L=0.5, save=False, meta=None):
-
-	#red = red.read()
-	#nir = nir.read()
-	L = np.full(red.shape, L)
-	ndvi = ((1+L)*(nir.astype(float)-red.astype(float)))/(nir+red+L)
-	#ndvi = np.nan_to_num(ndvi, nan=-999)
-	ndvi = ndvi.astype(rio.float32)
-
-	if save:
-		ndvi = ndvi
-		meta.update(driver='GTiff')
-		meta.update(dtype=rio.float32)
-		with rio.open('NDVI.tif', 'w', **meta) as dst:
-			dst.meta['nodata'] = -999
-			dst.meta['max'] = 1
-			dst.meta['min'] = 0
-			dst.write(ndvi.astype(rio.float32))
-
-
-	return np.nan_to_num(ndvi, nan=-999)
 
 
 if __name__ == '__main__':
