@@ -1,4 +1,4 @@
-_import os
+import os
 import numpy as np
 import rasterio as rio
 import rasterio.plot as rioplot
@@ -8,9 +8,8 @@ from PIL import Image
 import earthpy.spatial as es
 # from cut_images import get_nvdi, get_savi
 
-DATES_DIRS = ['20190331T084601',
-				'20190420T084601',
-				'20190520T084601']
+DATES_DIRS = ['20190427T083601',
+				'20190527T083601']
 
 STACKING_INDEXES = {
 	'swir': ['B12', 'B8A', 'B4'],
@@ -28,13 +27,23 @@ def stack_layer(directory, bands, name):
 	files = []
 	#bands = ['B12', 'B8A', 'B4']
 	for d in os.listdir(directory):
-		if d.split('_')[-2] in bands:
-			files.append(os.path.join(directory, d))
+		#print(d)
+		try:
+			if d.split('_')[-2] in bands:
+				files.append(os.path.join(directory, d))
+		except Exception as e:
+			print('almost done with', name, '...')
 
-	array, raster_prof = es.stack(files, 
-		out_path=directory.split('/')[1]+'_'+name+'.jp2')
-	print(directory.split('/')[1]+'_'+name+'.jp2')
+	array, raster_prof = es.stack(files) #, 
+		#out_path=directory.split('/')[1]+'_'+name+'.jp2')
 	print(array, raster_prof)
+	raster_prof.update(driver='GTiff')
+	raster_prof.update(dtype=rio.float32)
+	with rio.open(directory.split('/')[1]+'_'+name+'.tif', 'w', **raster_prof) as dst:
+		dst.meta['nodata'] = -999
+		dst.write(array.astype(rio.float32))
+	print(directory.split('/')[1]+'_'+name+'.tif')
+	#print(array, raster_prof)
 
 def get_nvdi(red_file, nir_file, 
 	save=True, outname='NDVI'):
@@ -87,8 +96,42 @@ def get_savi(red_file, nir_file, L=0.5,
 	return np.nan_to_num(savi, nan=-999)
 
 
+def get_mi(b8a_file, b11_file,
+	save=True, outname='MI'):
+
+	b8a = rio.open(b8a_file, driver='JP2OpenJPEG')	#.read()
+	b11 = rio.open(b11_file, driver='JP2OpenJPEG')	#.read()
+	meta = b8a.meta
+	b8a = b8a.read()
+	b11 = b11.read()
+	mi = ((b8a.astype(float)-b11.astype(float)))/(b8a+b11)
+	mi = mi.astype(rio.float32)
+
+	if save:
+		mi = mi
+		meta.update(driver='GTiff')
+		meta.update(dtype=rio.float32)
+		with rio.open(outname+'.tif', 'w', **meta) as dst:
+			dst.meta['nodata'] = -999
+			dst.meta['max'] = 1
+			dst.meta['min'] = 0
+			dst.write(mi.astype(rio.float32))
+
+
+	return np.nan_to_num(mi, nan=-999)
+
+
 if __name__ == '__main__':
 	for directory in DATES_DIRS:
+		for i in os.listdir('../'+directory):
+			#print(i)
+			if 'B8A' in i:
+				b8a = '../'+directory+'/'+i
+			if 'B11' in i:
+				b11 = '../'+directory+'/'+i
+		#print(b8a)
+		#exit()
+		get_mi(b8a, b11, True, directory+'_mi')
 		for ind in STACKING_INDEXES.keys():
 			stack_layer('../'+directory, STACKING_INDEXES[ind], ind)
 		for ind in STACKING_INDEXES_10m.keys():
