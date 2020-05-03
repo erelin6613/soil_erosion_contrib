@@ -111,6 +111,8 @@ def get_masks_n_imgs(base_dir, band, shapes=[MASK_FILE],
 		try:
 			assert tile.split('.')[-1] == 'jp2'
 			file = rio.open(tile, driver='JP2OpenJPEG')
+			file_array = file.read()
+			mask_arr, mask_transform, window = riomask.raster_geometry_mask(file, geoms, invert=True)
 		except NotImplementedError:
 			raise NotImplementedError('Tif files are written after masking\
 				happens, provide .jp2 file first')
@@ -120,11 +122,11 @@ def get_masks_n_imgs(base_dir, band, shapes=[MASK_FILE],
 			geoms = get_geoms(shapes, crs=file.profile['crs'])
 		transform, crs = file.profile['transform'], file.profile['crs']
 		
-		while i < file.read().shape[1]:
-			while j < file.read().shape[2]:
+		while i < file_array.shape[1]:
+			while j < file_array.shape[2]:
 
-				file_window = file.read(window=Window(0, 0, width=244, height=244))
-				mask_arr, mask_transform, window = riomask.raster_geometry_mask(file, geoms, invert=True)
+				#file_window = file.read(window=Window(0, 0, width=244, height=244))
+				#mask_arr, mask_transform, window = riomask.raster_geometry_mask(file, geoms, invert=True)
 				img_arr = mask_arr[i:i+CROP_SIZE, j:j+CROP_SIZE]*255
 				if np.argmax(img_arr.ravel()) == 0:	
 					print('No overlaping masks found in tile {}'
@@ -146,7 +148,7 @@ def get_masks_n_imgs(base_dir, band, shapes=[MASK_FILE],
 
 				with rio.open(os.path.join(band, filename), 'w', **file.profile) as f:
 					f.meta['driver'] = 'GTiff'
-					f.write(file.read(window=Window(i, j, width=CROP_SIZE, height=CROP_SIZE))) #) #, window=Window(0, 0, 244, 244))
+					f.write(file_array[:, i:i+CROP_SIZE, j:j+CROP_SIZE]) #) #, window=Window(0, 0, 244, 244))
 				
 				with rio.open(os.path.join('mask', filename), 'w', **file.profile) as dst:
 					#dst.meta['max'] = 1
@@ -160,16 +162,11 @@ def get_masks_n_imgs(base_dir, band, shapes=[MASK_FILE],
 
 if __name__ == '__main__':
 
-	base_dir = '../research_indexes/WV'
-	base_dir = '../research_indexes/XA'
-	base_dir = '../research_indexes/XV'
+	#base_dir = '../research_indexes/WV'
+	#base_dir = '../research_indexes/XA'
+	#base_dir = '../research_indexes/XV'
 	base_dir = '../research_indexes/YV'
-	base_dir = '../research_indexes/YA'
-	#dirs = ['../research_indexes/WV',
-			#'../research_indexes/XA',
-			#'../research_indexes/XV']#,
-			#'../research_indexes/YV',
-			#'../research_indexes/YA']
+	#base_dir = '../research_indexes/YA'
 	shape_paths = [os.path.join('regions', os.listdir('regions')[i]) 
 		for i in range(len(os.listdir('regions')))]
 	geoms = get_geoms(shape_paths, crs=dst_crs)
