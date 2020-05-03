@@ -160,24 +160,18 @@ def get_masks_n_imgs(base_dir, band, shapes=[MASK_FILE],
 
 if __name__ == '__main__':
 
-	#base_dir = '../research_indexes/'
-	dirs = ['../research_indexes/WV',
-			'../research_indexes/XA',
-			'../research_indexes/XV']#,
+	base_dir = '../research_indexes/WV'
+	base_dir = '../research_indexes/XA'
+	base_dir = '../research_indexes/XV'
+	base_dir = '../research_indexes/YV'
+	base_dir = '../research_indexes/YA'
+	#dirs = ['../research_indexes/WV',
+			#'../research_indexes/XA',
+			#'../research_indexes/XV']#,
 			#'../research_indexes/YV',
 			#'../research_indexes/YA']
 	shape_paths = [os.path.join('regions', os.listdir('regions')[i]) 
 		for i in range(len(os.listdir('regions')))]
 	geoms = get_geoms(shape_paths, crs=dst_crs)
 
-	while len(dirs) > 0:
-		threads = []
-		for i in range(3):
-			t = Thread(target = get_masks_n_imgs, 
-				args=(dirs[0], 'nrg', shape_paths, CROP_SIZE, geoms))
-			del dirs[0]
-			threads.append(t)
-			t.start()
-
-		for t in threads:
-			t.join()
+	get_masks_n_imgs(base_dir, 'nrg', shape_paths, CROP_SIZE, geoms)
