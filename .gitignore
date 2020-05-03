@@ -1,3 +1,5 @@
 *.tif
 *.tiff
 *.jp2
+nrg/*
+mask/*

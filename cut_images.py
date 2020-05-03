@@ -7,6 +7,7 @@ from rasterio.windows import Window
 import geopandas as gpd
 from PIL import Image
 from shapely.ops import cascaded_union
+from threading import Thread
 
 dst_crs = 'EPSG:32636'
 CROP_SIZE = 244
@@ -70,8 +71,8 @@ def get_geoms(shape_paths, crs=dst_crs):
 	return geoms
 
 
-def get_masks_n_imgs(base_dir, band, 
-					shapes=[MASK_FILE], CROP_SIZE=CROP_SIZE):
+def get_masks_n_imgs(base_dir, band, shapes=[MASK_FILE], 
+					CROP_SIZE=CROP_SIZE, geoms=None):
 	"""
 	The data structure is expected to resemble with what it
 	has been tested:
@@ -97,9 +98,11 @@ def get_masks_n_imgs(base_dir, band,
 	"""
 
 	tiles = []
+	os.system(f'mkdir {band}')
 	for d in os.walk(base_dir):
 		if len(d[2]) > 0:
 			l=[i for i in d[2] if '_'+str(band) in i]
+			#print(l)
 			if len(l) > 0:
 				tiles.append(os.path.join(d[0], l[0]))
 	
@@ -109,38 +112,72 @@ def get_masks_n_imgs(base_dir, band,
 			assert tile.split('.')[-1] == 'jp2'
 			file = rio.open(tile, driver='JP2OpenJPEG')
 		except NotImplementedError:
-			raise NotImplementedError('Tif files are not appropriate for this task \
-				since the dimationality might be scewed. Use .jp2 file instead')
+			raise NotImplementedError('Tif files are written after masking\
+				happens, provide .jp2 file first')
 			return
 		print('Getting shapes...')
-		geoms = get_geoms(shapes, crs=file.profile['crs'])
+		if geoms is None:
+			geoms = get_geoms(shapes, crs=file.profile['crs'])
 		transform, crs = file.profile['transform'], file.profile['crs']
 		
 		while i < file.read().shape[1]:
 			while j < file.read().shape[2]:
-				filename = '{}_{}_{}_{}.jp2'.format(tile.split('/')[-3], 
-					tile.split('/')[-1], i, j)
+
 				file_window = file.read(window=Window(0, 0, width=244, height=244))
 				mask_arr, mask_transform, window = riomask.raster_geometry_mask(file, geoms, invert=True)
-				img_arr = mask_arr[i:i+CROP_SIZE, j:j+CROP_SIZE]*1
-				if np.argmax(img_arr.ravel()) == 0:
-					j += CROP_SIZE
+				img_arr = mask_arr[i:i+CROP_SIZE, j:j+CROP_SIZE]*255
+				if np.argmax(img_arr.ravel()) == 0:	
 					print('No overlaping masks found in tile {}'
 						.format((i, i+CROP_SIZE, j, j+CROP_SIZE)))
+					j += CROP_SIZE
 					continue
+				filename = '{}_{}_{}_{}.tif'.format(tile.split('/')[-3], 
+					tile.split('/')[-1].split('.')[0], i, j)
 				print(filename, 'will be added to masks and images')
-				with rio.open(os.path.join('true', filename), 'w', **file.profile) as f:
-					f.write(file.read(window=Window(i, j, width=CROP_SIZE, height=CROP_SIZE))) #.astype(rio.float32)) #, window=Window(0, 0, 244, 244))
+				"""
+				with rio.open(os.path.join(band, filename), 'w', **file.profile) as f:
+					f.write(file.read(window=Window(i, j, width=CROP_SIZE, height=CROP_SIZE)))	#.astype(rio.float32)) #) #, window=Window(0, 0, 244, 244))
 				
 				with rio.open(os.path.join('mask', filename), 'w', **file.profile) as dst:
-					dst.meta['max'] = 1
-					dst.meta['min'] = 0
-					dst.write(mask_arr)
+					#dst.meta['max'] = 1
+					#dst.meta['min'] = 0
+					dst.write(img_arr.astype(rio.uint16), indexes=1)
+				"""
+
+				with rio.open(os.path.join(band, filename), 'w', **file.profile) as f:
+					f.meta['driver'] = 'GTiff'
+					f.write(file.read(window=Window(i, j, width=CROP_SIZE, height=CROP_SIZE))) #) #, window=Window(0, 0, 244, 244))
+				
+				with rio.open(os.path.join('mask', filename), 'w', **file.profile) as dst:
+					#dst.meta['max'] = 1
+					#dst.meta['min'] = 0
+					dst.meta['driver'] = 'GTiff'
+					dst.write(img_arr.astype(rio.uint16), indexes=1)
 				j += CROP_SIZE
 			i += CROP_SIZE
+			j = 0
 
 
 if __name__ == '__main__':
 
-	base_dir = '../research_indexes/'
-	get_masks_n_imgs(base_dir, 'nrg')
+	#base_dir = '../research_indexes/'
+	dirs = ['../research_indexes/WV',
+			'../research_indexes/XA',
+			'../research_indexes/XV']#,
+			#'../research_indexes/YV',
+			#'../research_indexes/YA']
+	shape_paths = [os.path.join('regions', os.listdir('regions')[i]) 
+		for i in range(len(os.listdir('regions')))]
+	geoms = get_geoms(shape_paths, crs=dst_crs)
+
+	while len(dirs) > 0:
+		threads = []
+		for i in range(3):
+			t = Thread(target = get_masks_n_imgs, 
+				args=(dirs[0], 'nrg', shape_paths, CROP_SIZE, geoms))
+			del dirs[0]
+			threads.append(t)
+			t.start()
+
+		for t in threads:
+			t.join()
