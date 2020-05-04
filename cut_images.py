@@ -112,6 +112,7 @@ def get_masks_n_imgs(base_dir, band, shapes=[MASK_FILE],
 			assert tile.split('.')[-1] == 'jp2'
 			file = rio.open(tile, driver='JP2OpenJPEG')
 			file_array = file.read()
+			print(file_array.shape)
 			mask_arr, mask_transform, window = riomask.raster_geometry_mask(file, geoms, invert=True)
 		except NotImplementedError:
 			raise NotImplementedError('Tif files are written after masking\
@@ -128,14 +129,23 @@ def get_masks_n_imgs(base_dir, band, shapes=[MASK_FILE],
 				#file_window = file.read(window=Window(0, 0, width=244, height=244))
 				#mask_arr, mask_transform, window = riomask.raster_geometry_mask(file, geoms, invert=True)
 				img_arr = mask_arr[i:i+CROP_SIZE, j:j+CROP_SIZE]*255
+				#print(img_arr)
 				if np.argmax(img_arr.ravel()) == 0:	
 					print('No overlaping masks found in tile {}'
 						.format((i, i+CROP_SIZE, j, j+CROP_SIZE)))
 					j += CROP_SIZE
 					continue
-				filename = '{}_{}_{}_{}.tif'.format(tile.split('/')[-3], 
+				filename = '{}_{}_{}_{}.png'.format(tile.split('/')[-3], 
 					tile.split('/')[-1].split('.')[0], i, j)
 				print(filename, 'will be added to masks and images')
+				#print(img_arr)
+				img_arr = Image.fromarray(np.uint8(img_arr))
+				img_arr.save(os.path.join('mask', filename))
+				tag_arr = file_array[:, i:i+CROP_SIZE, j:j+CROP_SIZE]
+				print(tag_arr.shape)
+				tag_arr = np.ma.transpose(tag_arr, [1, 2, 0])
+				tag_img = Image.fromarray(tag_arr.astype(np.uint8))
+				tag_img.save(os.path.join(band, filename))
 				"""
 				with rio.open(os.path.join(band, filename), 'w', **file.profile) as f:
 					f.write(file.read(window=Window(i, j, width=CROP_SIZE, height=CROP_SIZE)))	#.astype(rio.float32)) #) #, window=Window(0, 0, 244, 244))
@@ -144,7 +154,7 @@ def get_masks_n_imgs(base_dir, band, shapes=[MASK_FILE],
 					#dst.meta['max'] = 1
 					#dst.meta['min'] = 0
 					dst.write(img_arr.astype(rio.uint16), indexes=1)
-				"""
+				
 
 				with rio.open(os.path.join(band, filename), 'w', **file.profile) as f:
 					f.meta['driver'] = 'GTiff'
@@ -155,6 +165,8 @@ def get_masks_n_imgs(base_dir, band, shapes=[MASK_FILE],
 					#dst.meta['min'] = 0
 					dst.meta['driver'] = 'GTiff'
 					dst.write(img_arr.astype(rio.uint16), indexes=1)
+				"""
+
 				j += CROP_SIZE
 			i += CROP_SIZE
 			j = 0
@@ -165,8 +177,8 @@ if __name__ == '__main__':
 	#base_dir = '../research_indexes/WV'
 	#base_dir = '../research_indexes/XA'
 	#base_dir = '../research_indexes/XV'
-	base_dir = '../research_indexes/YV'
-	#base_dir = '../research_indexes/YA'
+	#base_dir = '../research_indexes/YV'
+	base_dir = '../research_indexes/'
 	shape_paths = [os.path.join('regions', os.listdir('regions')[i]) 
 		for i in range(len(os.listdir('regions')))]
 	geoms = get_geoms(shape_paths, crs=dst_crs)
