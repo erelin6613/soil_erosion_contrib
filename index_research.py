@@ -25,7 +25,6 @@ STACKING_INDEXES_10m = {
 
 def stack_layer(directory, bands, name):
 	files = []
-	#bands = ['B12', 'B8A', 'B4']
 	for d in os.listdir(directory):
 		#print(d)
 		try:

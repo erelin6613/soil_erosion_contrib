@@ -22,10 +22,8 @@ def train(model, X, y, epochs=EPOCHS, lr=0.01, batch_size=BATCH_SIZE):
 
 	        batch_x = np.array(X[i:i+batch_size])
 	        batch_y = np.array(y[i:i+batch_size])
-	        #print(batch_x.shape)
 	        batch_x = from_numpy(batch_x).float()
 	        batch_y = from_numpy(batch_y).float()
-	        #print(batch_x[0])
 
 	        outputs = model.forward(batch_x)
 	        loss = F.mse_loss(outputs, batch_y)

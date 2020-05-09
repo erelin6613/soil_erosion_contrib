@@ -10,7 +10,7 @@ from shapely.ops import cascaded_union
 from threading import Thread
 
 dst_crs = 'EPSG:32636'
-CROP_SIZE = 244
+CROP_SIZE = 224
 MASK_FILE = 'all_masks.geojson'
 
 def overlap_mask(shapes, filename, profile, tiff_map,
@@ -23,7 +23,6 @@ def overlap_mask(shapes, filename, profile, tiff_map,
 	i=0
 	j=0
 	while i < mask_arr.shape[0]:
-		#print(i, j)
 		while j < mask_arr.shape[1]:
 			img_arr = mask_arr[i:i+CROP_SIZE, j:j+CROP_SIZE]
 			if np.argmax(img_arr.ravel()) == 0:
@@ -72,7 +71,8 @@ def get_geoms(shape_paths, crs=dst_crs):
 
 
 def get_masks_n_imgs(base_dir, band, shapes=[MASK_FILE], 
-					CROP_SIZE=CROP_SIZE, geoms=None):
+					CROP_SIZE=CROP_SIZE, geoms=None,
+					no_cut=False):
 	"""
 	The data structure is expected to resemble with what it
 	has been tested:
@@ -98,7 +98,8 @@ def get_masks_n_imgs(base_dir, band, shapes=[MASK_FILE],
 	"""
 
 	tiles = []
-	os.system(f'mkdir {band}')
+	os.system(f'mkdir -p {band}')
+	os.system(f'mkdir -p mask')
 	for d in os.walk(base_dir):
 		if len(d[2]) > 0:
 			l=[i for i in d[2] if '_'+str(band) in i]
@@ -122,12 +123,15 @@ def get_masks_n_imgs(base_dir, band, shapes=[MASK_FILE],
 		if geoms is None:
 			geoms = get_geoms(shapes, crs=file.profile['crs'])
 		transform, crs = file.profile['transform'], file.profile['crs']
+		if no_cut:
+			mask_arr.save(os.path.join('mask', filename))
+			tag_arr = np.ma.transpose(file_array, [1, 2, 0])
+			tag_img.save(os.path.join(band, filename))
+			return
+
 		
 		while i < file_array.shape[1]:
 			while j < file_array.shape[2]:
-
-				#file_window = file.read(window=Window(0, 0, width=244, height=244))
-				#mask_arr, mask_transform, window = riomask.raster_geometry_mask(file, geoms, invert=True)
 				img_arr = mask_arr[i:i+CROP_SIZE, j:j+CROP_SIZE]*255
 				#print(img_arr)
 				if np.argmax(img_arr.ravel()) == 0:	
@@ -146,26 +150,6 @@ def get_masks_n_imgs(base_dir, band, shapes=[MASK_FILE],
 				tag_arr = np.ma.transpose(tag_arr, [1, 2, 0])
 				tag_img = Image.fromarray(tag_arr.astype(np.uint8))
 				tag_img.save(os.path.join(band, filename))
-				"""
-				with rio.open(os.path.join(band, filename), 'w', **file.profile) as f:
-					f.write(file.read(window=Window(i, j, width=CROP_SIZE, height=CROP_SIZE)))	#.astype(rio.float32)) #) #, window=Window(0, 0, 244, 244))
-				
-				with rio.open(os.path.join('mask', filename), 'w', **file.profile) as dst:
-					#dst.meta['max'] = 1
-					#dst.meta['min'] = 0
-					dst.write(img_arr.astype(rio.uint16), indexes=1)
-				
-
-				with rio.open(os.path.join(band, filename), 'w', **file.profile) as f:
-					f.meta['driver'] = 'GTiff'
-					f.write(file_array[:, i:i+CROP_SIZE, j:j+CROP_SIZE]) #) #, window=Window(0, 0, 244, 244))
-				
-				with rio.open(os.path.join('mask', filename), 'w', **file.profile) as dst:
-					#dst.meta['max'] = 1
-					#dst.meta['min'] = 0
-					dst.meta['driver'] = 'GTiff'
-					dst.write(img_arr.astype(rio.uint16), indexes=1)
-				"""
 
 				j += CROP_SIZE
 			i += CROP_SIZE
