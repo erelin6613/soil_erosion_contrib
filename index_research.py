@@ -6,7 +6,8 @@ import rasterio.mask as riomask
 import geopandas as gpd
 from PIL import Image
 import earthpy.spatial as es
-# from cut_images import get_nvdi, get_savi
+
+BASE_DIR = os.getcwd()
 
 DATES_DIRS = ['20190427T083601',
 				'20190527T083601']
@@ -26,15 +27,13 @@ STACKING_INDEXES_10m = {
 def stack_layer(directory, bands, name):
 	files = []
 	for d in os.listdir(directory):
-		#print(d)
 		try:
 			if d.split('_')[-2] in bands:
 				files.append(os.path.join(directory, d))
 		except Exception as e:
-			print('almost done with', name, '...')
+			print('Preparing layer', name, '...')
 
-	array, raster_prof = es.stack(files) #, 
-		#out_path=directory.split('/')[1]+'_'+name+'.jp2')
+	array, raster_prof = es.stack(files)
 	print(array, raster_prof)
 	raster_prof.update(driver='GTiff')
 	raster_prof.update(dtype=rio.float32)
@@ -42,13 +41,19 @@ def stack_layer(directory, bands, name):
 		dst.meta['nodata'] = -999
 		dst.write(array.astype(rio.float32))
 	print(directory.split('/')[1]+'_'+name+'.tif')
-	#print(array, raster_prof)
 
 def get_nvdi(red_file, nir_file, 
 	save=True, outname='NDVI'):
+	if red_file.endswith('.jp2') and nir_file.endswith('.jp2'):
 
-	red = rio.open(red_file, driver='JP2OpenJPEG')	#.read()
-	nir = rio.open(nir_file, driver='JP2OpenJPEG')	#.read()
+		red = rio.open(red_file, driver='JP2OpenJPEG')
+		nir = rio.open(nir_file, driver='JP2OpenJPEG')
+	elif (red_file.endswith('.tif') and nir_file.endswith('.tif')) or \
+	(red_file.endswith('.tiff') and nir_file.endswith('.tiff')):
+		red = rio.open(red_file, driver='GTiff')
+		nir = rio.open(nir_file, driver='GTiff')
+	else:
+		raise Exception('Bands images must be of the same format')
 	meta = red.meta
 	red = red.read()
 	nir = nir.read()
@@ -72,8 +77,16 @@ def get_nvdi(red_file, nir_file,
 def get_savi(red_file, nir_file, L=0.5,
 	save=True, outname='NDVI'):
 
-	red = rio.open(red_file, driver='JP2OpenJPEG')	#.read()
-	nir = rio.open(nir_file, driver='JP2OpenJPEG')	#.read()
+	if red_file.endswith('.jp2') and nir_file.endswith('.jp2'):
+
+		red = rio.open(red_file, driver='JP2OpenJPEG')
+		nir = rio.open(nir_file, driver='JP2OpenJPEG')
+	elif (red_file.endswith('.tif') and nir_file.endswith('.tif')) or \
+	(red_file.endswith('.tiff') and nir_file.endswith('.tiff')):
+		red = rio.open(red_file, driver='GTiff')
+		nir = rio.open(nir_file, driver='GTiff')
+	else:
+		raise Exception('Bands images must be of the same format')
 	meta = red.meta
 	red = red.read()
 	nir = nir.read()
@@ -98,8 +111,16 @@ def get_savi(red_file, nir_file, L=0.5,
 def get_mi(b8a_file, b11_file,
 	save=True, outname='MI'):
 
-	b8a = rio.open(b8a_file, driver='JP2OpenJPEG')	#.read()
-	b11 = rio.open(b11_file, driver='JP2OpenJPEG')	#.read()
+	if b8a_file.endswith('.jp2') and b11_file.endswith('.jp2'):
+
+		b8a = rio.open(b8a_file, driver='JP2OpenJPEG')
+		b11 = rio.open(b11_file, driver='JP2OpenJPEG')
+	elif (b8a_file.endswith('.tif') and b11_file.endswith('.tif')) or \
+	(b8a_file.endswith('.tiff') and b11_file.endswith('.tiff')):
+		b8a = rio.open(b8a_file, driver='GTiff')
+		b11 = rio.open(b11_file, driver='GTiff')
+	else:
+		raise Exception('Bands images must be of the same format')
 	meta = b8a.meta
 	b8a = b8a.read()
 	b11 = b11.read()
@@ -119,18 +140,9 @@ def get_mi(b8a_file, b11_file,
 
 	return np.nan_to_num(mi, nan=-999)
 
+def get_metrics(DATES_DIRS=DATES_DIRS):
 
-if __name__ == '__main__':
 	for directory in DATES_DIRS:
-		for i in os.listdir('../'+directory):
-			#print(i)
-			if 'B8A' in i:
-				b8a = '../'+directory+'/'+i
-			if 'B11' in i:
-				b11 = '../'+directory+'/'+i
-		#print(b8a)
-		#exit()
-		get_mi(b8a, b11, True, directory+'_mi')
 		for ind in STACKING_INDEXES.keys():
 			stack_layer('../'+directory, STACKING_INDEXES[ind], ind)
 		for ind in STACKING_INDEXES_10m.keys():
@@ -140,11 +152,17 @@ if __name__ == '__main__':
 				red = os.path.join('../'+directory+'/10m/'+each)
 			if 'B08' in each.split('_'):
 				nir = os.path.join('../'+directory+'/10m/'+each)
-			#if 'B03' in each.split('_'):
-			#	b03 = each
-			#if 'B02' in each.split('_'):
-			#	b02 = each
+			if 'B03' in each.split('_'):
+				b03 = each
+			if 'B02' in each.split('_'):
+				b02 = each
 		get_nvdi(red, nir, True, directory+'_ndvi')
 		get_savi(red, nir, 0.5, True, directory+'_savi')
 
-	#stack_layer('../20190331T084601')
+
+if __name__ == '__main__':
+
+	for directory in DATES_DIRS:
+		stack_layer(directory,
+			STACKING_INDEXES_10m['nrg'],
+			'nrg')

@@ -70,18 +70,15 @@ def annotate(paths, DIR=DIR, MASK_DIR=MASK_DIR):
 		d['position'] = fn.split('_')[-2]+'_'+fn.split('_')[-1]
 		d['mask_pxl'] = np.count_nonzero(mask_array)
 		df = df.append(d, ignore_index=True)
-		#original_img.save(os.path.join(OUT_DIR, new_dir,
-		#	'images', fn+'.png'))
-		#mask_img.save(os.path.join(OUT_DIR, new_dir,
-		#	'masks', fn+'.png'))
-		os.system('mv {} {}'.format(os.path.join(DIR, file), 
-			OUT_DIR, new_dir, 'images', fn+'.png'))
-		os.system('mv {} {}'.format(os.path.join(DIR, file), 
-			OUT_DIR, new_dir, 'masks', fn+'.png'))
+		original_img.save(os.path.join(OUT_DIR, new_dir,
+			'images', fn+'.png'))
+		mask_img.save(os.path.join(OUT_DIR, new_dir,
+			'masks', fn+'.png'))
 
 	return df
 
-def make sets():
+def make_sets():
+	os.system(f'mkdir -p {OUT_DIR}')
 	all_paths = list(os.listdir(DIR))
 	shuffle(all_paths)
 	train_ind= int(len(all_paths)*TRAIN_SIZE)
@@ -96,5 +93,8 @@ def make sets():
 	print('Train set has been written')
 	annotate(test_set).to_csv('test_df.csv')
 	print('Test set has been written')
-	annotate(val_set).to_csv(os.path.join('val_df.csv')
+	annotate(val_set).to_csv('val_df.csv')
 	print('Validation set has been written')
+
+if __name__ == '__main__':
+	make_sets()

@@ -25,7 +25,7 @@ def overlap_mask(shapes, filename, profile, tiff_map,
 	while i < mask_arr.shape[0]:
 		while j < mask_arr.shape[1]:
 			img_arr = mask_arr[i:i+CROP_SIZE, j:j+CROP_SIZE]
-			if np.argmax(img_arr.ravel()) == 0:
+			if np.argmax(img_arr.ravel()) == 0 or img_arr.shape != (CROP_SIZE, CROP_SIZE):
 				j += CROP_SIZE
 				continue
 			img_arr = np.array(img_arr, dtype='uint8')
@@ -113,7 +113,7 @@ def get_masks_n_imgs(base_dir, band, shapes=[MASK_FILE],
 			assert tile.split('.')[-1] == 'jp2'
 			file = rio.open(tile, driver='JP2OpenJPEG')
 			file_array = file.read()
-			print(file_array.shape)
+			#print(file_array.shape)
 			mask_arr, mask_transform, window = riomask.raster_geometry_mask(file, geoms, invert=True)
 		except NotImplementedError:
 			raise NotImplementedError('Tif files are written after masking\
@@ -134,7 +134,7 @@ def get_masks_n_imgs(base_dir, band, shapes=[MASK_FILE],
 			while j < file_array.shape[2]:
 				img_arr = mask_arr[i:i+CROP_SIZE, j:j+CROP_SIZE]*255
 				#print(img_arr)
-				if np.argmax(img_arr.ravel()) == 0:	
+				if np.argmax(img_arr.ravel()) == 0 or img_arr.shape != (CROP_SIZE, CROP_SIZE):	
 					print('No overlaping masks found in tile {}'
 						.format((i, i+CROP_SIZE, j, j+CROP_SIZE)))
 					j += CROP_SIZE
@@ -146,7 +146,7 @@ def get_masks_n_imgs(base_dir, band, shapes=[MASK_FILE],
 				img_arr = Image.fromarray(np.uint8(img_arr))
 				img_arr.save(os.path.join('mask', filename))
 				tag_arr = file_array[:, i:i+CROP_SIZE, j:j+CROP_SIZE]
-				print(tag_arr.shape)
+				#print(tag_arr.shape)
 				tag_arr = np.ma.transpose(tag_arr, [1, 2, 0])
 				tag_img = Image.fromarray(tag_arr.astype(np.uint8))
 				tag_img.save(os.path.join(band, filename))
