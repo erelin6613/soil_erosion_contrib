@@ -167,4 +167,4 @@ if __name__ == '__main__':
 		for i in range(len(os.listdir('regions')))]
 	geoms = get_geoms(shape_paths, crs=dst_crs)
 
-	get_masks_n_imgs(base_dir, 'nrg', shape_paths, CROP_SIZE, geoms)
+	get_masks_n_imgs(base_dir, 'false_color', shape_paths, CROP_SIZE, geoms)
